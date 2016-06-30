@@ -1,11 +1,11 @@
 {-# LANGUAGE FlexibleInstances, DeriveGeneric, DeriveAnyClass #-}
 
 {- ===========================================================================
-Contains basic types - you'll have to extend several of the definitions below
+Contains basic types for Parsing - you'll have to extend several of the definitions below
 =========================================================================== -}
 
 
-module FP_TypesEtc where
+module ParseBasis where
 
 import GHC.Generics
 import FPPrac.Trees
@@ -13,20 +13,17 @@ import FPPrac.Trees
 -- ===================================================================
 -- Example Alphabet
 -- - Extend, adapt, change the non-terminals to your own needs
--- - Do NOT change the first two groups of constructors (Symbol ... Rep1)
+-- - Do NOT change the first two groups of constructors (TermSymb ... Rep1)
 
-data Alphabet = Terminal String               -- Terminal symbol: WILL be included in parseTree
-              | Symbol   String               -- Terminal symbol: will NOT be included in parseTree
+data Alphabet = TermSymb String               -- Terminal symbol: WILL be included in parseTree
               | SyntCat  Alphabet             -- Checks whether a string belongs to a syntactic category
 
               | Alt   [Alphabet] [Alphabet]   -- Try both
               | Opt   [Alphabet]              -- Optional
               | Rep0  [Alphabet]              -- Zero or more repetitions
               | Rep1  [Alphabet]              -- One or more repetitions
-
+              
               | Expr                          -- Expression
-              | ArithExpr
-              | CompExpr
               | Nmbr                          -- Number
               | Var                           -- Variable
               | Op                            -- Operation symbol
@@ -35,14 +32,22 @@ data Alphabet = Terminal String               -- Terminal symbol: WILL be includ
               | Space                         -- Spaces
               | Bracket                       -- Brackets
               | Stmnt                         -- Statement
-              | IfThen
-              | Iff
-              | Thenn
-              | Elsee
-              | Program
-              | Rep
-              | Assign
               | Stmnt2
+              | Assign                        -- Assignment
+              | Repeat                        -- Repeat
+              | Whilee
+              | Iff
+              | Elsee
+              | Thenn
+              | Program
+              | ArithExpr
+              | CompExpr
+              | IfThen
+              | While
+              | Content
+              | Type
+              | Bool
+              
               deriving (Eq,Ord,Show,Generic,ToRoseTree)
 
 -- ===================================================================
@@ -57,12 +62,11 @@ ps <> qs = Alt  ps qs
 
 type Grammar = Alphabet -> [[Alphabet]]
 
-type Token   = (Alphabet,String,Int)  -- Alphabet: indicates the "syntactic category" to which
-                                      --      the String belongs (to distinguish, a.o., between
-                                      --      reserved words and identifiers in general),
-                                      -- String: the token itself,
-                                      -- Int: the position of the token in the input token-list
-                                      --      (needed for error messages).
+type Token   = (Alphabet,String)  -- Alphabet: indicates the "syntactic category" to which
+                                  --      the String belongs (to distinguish, a.o., between
+                                  --      reserved words and identifiers in general),
+                                  -- String: the token itself,
+				  -- NOTE: a token is a TWO-tuple, the number is added automaticallyy
 
 instance ToRoseTree Token where
   toRoseTree t = RoseNode (show t) []
@@ -81,27 +85,41 @@ instance Ord ParseTree where
 
 type ParseState = ( Alphabet       -- Non-terminal indicating the present subexpression
                   , [ParseTree]    -- The already produced trees within the present subexpression
-                  , [Token]        -- The remaining list of input tokens
+                  , [(Int,Token)]  -- The remaining list of *indexed* input tokens
+                  , [Alphabet]     -- List of non-terminals to check for left-recursiveness
                   )
-
--- ===================================================================
-x ∈ xs = x `elem` xs
 
 -- ===================================================================
 -- Pretty Printing
 
-toStrings tree = case tree of
-     PLeaf t                 -> ["PLeaf " ++ show t]
+addSpace n = map ((replicate n ' ') ++)
 
+addListNotation []                 =   [["["]]
+
+addListNotation ([]:strss)         =   ["["]
+                                     : [  (","++str'):strs' | (str':strs') <- strss ]
+
+addListNotation ((str:strs):strss) =   (("["++str):strs)
+                                     : [  (","++str'):strs' | (str':strs') <- strss ]
+
+addEndBrack [strs]       = [ strs ++ ["]"] ]
+addEndBrack (strs:strss) = strs : addEndBrack strss
+
+class Prpr a where
+  toStrings :: a -> [String]
+
+  prpr :: a -> IO ()
+  prpr = putStr . ('\n':) . (++"\n") . unlines . toStrings
+
+  prprList :: [a] -> IO ()
+  prprList = putStr . ('\n':) . unlines . concat . map (++[""]) . map toStrings
+
+
+instance Prpr ParseTree where
+  toStrings tree = case tree of
+     PLeaf t                 -> ["PLeaf " ++ show t]
      PNode nt ts             -> ("PNode " ++ show nt) : (addSpace 7 $ concat $ addEndBrack $ addListNotation $ map toStrings ts)
                              where
-                               addSpace n = map ((replicate n ' ') ++)
-
-                               addListNotation ((str:strs):strss) =   (("["++str):strs)
-                                                                    : [  (","++str'):strs' | (str':strs') <- strss ]
-
-                               addEndBrack [strs]       = [ strs ++ ["]"] ]
-                               addEndBrack (strs:strss) = strs : addEndBrack strss 
 
      PError tr rule nt str k -> [ "==========="
                                 , "Parse Error"
@@ -118,6 +136,6 @@ toStrings tree = case tree of
                                 , "==========="
                                 ]
 
-prpr t  = putStr $ ('\n':) $ (++"\n") $ unlines $ toStrings t
-
-
+instance Prpr RoseTree where
+  toStrings (RoseNode str [RoseNode str' []]) = [str ++ " " ++ str']
+  toStrings (RoseNode str ts)                 = str : (addSpace 4 $ concat $ map toStrings ts)
