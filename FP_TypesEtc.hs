@@ -25,8 +25,6 @@ data Alphabet = Terminal String               -- Terminal symbol: WILL be includ
               | Rep1  [Alphabet]              -- One or more repetitions
 
               | Expr                          -- Expression
-              | ArithExpr
-              | CompExpr
               | Nmbr                          -- Number
               | Var                           -- Variable
               | Op                            -- Operation symbol
@@ -35,14 +33,21 @@ data Alphabet = Terminal String               -- Terminal symbol: WILL be includ
               | Space                         -- Spaces
               | Bracket                       -- Brackets
               | Stmnt                         -- Statement
-              | IfThen
-              | Iff
-              | Thenn
-              | Elsee
-              | Program
-              | Rep
-              | Assign
               | Stmnt2
+              | Assign                        -- Assignment
+              | Repeat                        -- Repeat
+              | Whilee
+              | Iff
+              | Elsee
+              | Thenn
+              | Program
+              | ArithExpr
+              | CompExpr
+              | IfThen
+              | While
+              | Content
+              | Type
+              | Bool
               deriving (Eq,Ord,Show,Generic,ToRoseTree)
 
 -- ===================================================================
